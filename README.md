@@ -82,9 +82,9 @@ Check out the live site here: [3d-humpty.vercel.app](https://3d-humpty.vercel.ap
 👨‍💻 Created By
 Mahendra Rao
 
-[GitHub](https://github.com/MahendraRao)
+* [GitHub](https://github.com/MahendraRao)
 
-[Website](https://3d-humpty.vercel.app/)
+* [Website](https://3d-humpty.vercel.app/)
 
 Built with ❤️ and Three.js
    
