@@ -5,7 +5,7 @@
     <title>Mahendra Rao | The Ultimate Humpty</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@900&display=swap');
-        body { margin: 0; background: #020205; color: white; font-family: 'Inter', sans-serif; overflow: hidden; }
+        body { margin: 0; background: #020205; color: white; font-family: 'Inter', sans-serif; overflow: hidden; touch-action: none; }
         canvas { display: block; }
         
         .name-brand {
@@ -22,25 +22,13 @@
             background: #000; color: #ffcc00; border-radius: 50px; font-weight: bold;
         }
         .speech-bubble {
-            position: fixed;
-            background: white;
-            color: black;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-weight: bold;
-            display: none; 
-            pointer-events: none;
-            transform: translate(-50%, -100%);
-            z-index: 100;
+            position: fixed; background: white; color: black; padding: 10px 20px;
+            border-radius: 20px; font-weight: bold; display: none; 
+            pointer-events: none; transform: translate(-50%, -100%); z-index: 100;
         }
         .speech-bubble::after {
-            content: '';
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            border-width: 10px 10px 0;
-            border-style: solid;
-            border-color: white transparent transparent;
+            content: ''; position: absolute; bottom: -10px; left: 50%;
+            border-width: 10px 10px 0; border-style: solid; border-color: white transparent transparent;
         }
     </style>
 </head>
@@ -63,34 +51,37 @@
     <script type="module">
         import * as THREE from 'three';
 
-        // 1. SCENE SETUP
+        // 1. SCENE & OPTIMIZED RENDERER
         const scene = new THREE.Scene();
         const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        
+        const renderer = new THREE.WebGLRenderer({ 
+            antialias: true, 
+            powerPreference: "high-performance" 
+        });
         renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         document.body.appendChild(renderer.domElement);
 
         // 2. CHARACTER RIGGING
         const humpty = new THREE.Group();
-        
-        // Body (Egg)
-        const bodyGeo = new THREE.SphereGeometry(5, 32, 32);
-        bodyGeo.scale(1, 1.3, 1);
-        const body = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({color: 0xffffff}));
+        const body = new THREE.Mesh(
+            new THREE.SphereGeometry(5, 32, 32), 
+            new THREE.MeshStandardMaterial({color: 0xffffff})
+        );
+        body.scale.set(1, 1.3, 1);
         humpty.add(body);
 
-        // Cap
         const cap = new THREE.Mesh(new THREE.ConeGeometry(3, 4, 32), new THREE.MeshStandardMaterial({color: 0xff0000}));
         cap.position.y = 6; humpty.add(cap);
 
-        // Eyes
-        const eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.6), new THREE.MeshBasicMaterial({color: 0x000}));
-        eyeL.position.set(-1.5, 2, 4.5);
+        const eyeGeo = new THREE.SphereGeometry(0.6);
+        const eyeMat = new THREE.MeshBasicMaterial({color: 0x000});
+        const eyeL = new THREE.Mesh(eyeGeo, eyeMat); eyeL.position.set(-1.5, 2, 4.5);
         const eyeR = eyeL.clone(); eyeR.position.x = 1.5;
         humpty.add(eyeL, eyeR);
 
-        // Limb Function
-        function createLimbWithDigits(isHand) {
+        function createLimb(isHand) {
             const group = new THREE.Group();
             const limb = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 4), new THREE.MeshStandardMaterial({color: 0x333333}));
             group.add(limb);
@@ -102,48 +93,49 @@
             return group;
         }
 
-        const armL = createLimbWithDigits(true); armL.position.set(-6, 0, 0); armL.rotation.z = 1;
-        const armR = createLimbWithDigits(true); armR.position.set(6, 0, 0); armR.rotation.z = -1;
-        const legL = createLimbWithDigits(false); legL.position.set(-2, -7, 0);
-        const legR = createLimbWithDigits(false); legR.position.set(2, -7, 0);
-        
+        const armL = createLimb(true); armL.position.set(-6, 0, 0); armL.rotation.z = 1;
+        const armR = createLimb(true); armR.position.set(6, 0, 0); armR.rotation.z = -1;
+        const legL = createLimb(false); legL.position.set(-2, -7, 0);
+        const legR = createLimb(false); legR.position.set(2, -7, 0);
         humpty.add(armL, armR, legL, legR);
         scene.add(humpty);
 
-        // Stars & Light
+        // Environment
         const starPos = new Float32Array(5000 * 3);
         for(let i=0; i<15000; i++) starPos[i] = (Math.random() - 0.5) * 800;
-        const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+        const starGeo = new THREE.BufferGeometry(); 
+        starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
         scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({color: 0xffffff, size: 0.5})));
         
         const light = new THREE.PointLight(0xffffff, 1000); light.position.set(10, 20, 10); scene.add(light);
         scene.add(new THREE.AmbientLight(0xffffff, 0.5));
         camera.position.z = 30;
 
-        // 3. INTERACTION & MOUSE LOGIC
+        // 3. INPUT TRACKING (Mouse & Touch)
+        let mouseX = 0, mouseY = 0;
+        const updateInput = (x, y) => {
+            mouseX = (x / window.innerWidth) * 2 - 1;
+            mouseY = -(y / window.innerHeight) * 2 + 1;
+        };
+        window.addEventListener('mousemove', (e) => updateInput(e.clientX, e.clientY));
+        window.addEventListener('touchmove', (e) => {
+            updateInput(e.touches[0].clientX, e.touches[0].clientY);
+        }, { passive: true });
+
+        // Interaction Logic
         const music = document.getElementById('bgMusic');
         const btn = document.getElementById('musicBtn');
         const bubble = document.getElementById('bubble');
         let dancing = false;
         let clock = new THREE.Clock();
-        let mouseX = 0, mouseY = 0;
-
-        window.addEventListener('mousemove', (event) => {
-            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
-            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
-        });
 
         btn.onclick = () => {
             if(music.paused) { 
-                music.play(); 
-                dancing = true; 
-                btn.innerText = "🛑 STOP PARTY"; 
-                bubble.style.display = 'block';
+                music.play(); dancing = true; 
+                btn.innerText = "🛑 STOP PARTY"; bubble.style.display = 'block';
             } else { 
-                music.pause(); 
-                dancing = false; 
-                btn.innerText = "🕺 START THE DANCE"; 
-                bubble.style.display = 'none';
+                music.pause(); dancing = false; 
+                btn.innerText = "🕺 START THE DANCE"; bubble.style.display = 'none';
             }
         };
 
@@ -156,19 +148,18 @@
             }
         };
 
-        // 4. FINAL ANIMATION LOOP
+        // 4. ANIMATION LOOP
         function animate() {
             requestAnimationFrame(animate);
             const t = clock.getElapsedTime();
 
-            // FOLLOW MOUSE
+            // Smooth Movement
             const targetX = mouseX * 20;
-            const targetY = (mouseY * 20);
-            humpty.position.x += (targetX - humpty.position.x) * 0.01;
-            humpty.position.y += (targetY - humpty.position.y) * 0.01;
+            const targetY = mouseY * 20;
+            humpty.position.x += (targetX - humpty.position.x) * 0.08;
+            humpty.position.y += (targetY - humpty.position.y) * 0.08;
             humpty.rotation.y = mouseX * 0.5;
 
-            // DANCE MOVES
             if(dancing) {
                 humpty.position.y += Math.sin(t * 10) * 1;
                 armL.rotation.x = Math.sin(t * 15);
@@ -176,12 +167,12 @@
                 legL.rotation.x = Math.sin(t * 10) * 0.1;
             }
 
-            // BUBBLE TRACKING
+            // Bubble Position
             const vector = humpty.position.clone().project(camera);
             bubble.style.left = `${(vector.x * .5 + .5) * window.innerWidth}px`;
             bubble.style.top = `${(vector.y * -.5 + .5) * window.innerHeight - 50}px`;
 
-            // CONFETTI
+            // Confetti Update
             confettis.forEach((c, i) => {
                 c.position.add(c.userData.vel); c.userData.vel.y -= 0.01;
                 if(c.position.y < -30) { scene.remove(c); confettis.splice(i, 1); }
